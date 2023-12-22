@@ -331,8 +331,9 @@ func main() {
 	loopTimer := time.After(loopPeriod) // loopTimer of highest transmitter
 	log.Printf("Init channels: wait max %d seconds for a message of each transmitter", loopPeriod/1000000000)
 
+	consecutivePacketsMissed := 0
+
 	for {
-		consecutivePacketsMissed := 0
 		select {
 		case <-sig:
 			return
