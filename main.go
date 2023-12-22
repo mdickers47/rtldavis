@@ -75,6 +75,7 @@ var (
 	maxFreq         int   // number of frequencies (EU=5, US=51)
 	maxChan         int   // number of defined (=actual) channels
 	receiveWindow   int   // timespan in ms for receiving a message
+	sanityBufLen    int   // don't log a packet until the next N are confirmed
 
 	// per channel (index is actChan[ch])
 	chLastVisits  [maxTr]int64   // last visit times in UTC-nanoseconds
@@ -142,6 +143,7 @@ func init() {
 	// supported gain values: 0, 9, 14, 27, 37, 77, 87, 125, 144, 157, 166, 197, 207,
 	// 229, 254, 280, 297, 328, 338, 364, 372, 386, 402, 421, 434, 439, 445, 480, 496.
 	flag.IntVar(&maxmissed, "maxmissed", 51, "max missed-packets-in-a-row before new init")
+	flag.IntVar(&sanityBufLen, "sanitybuf", 1, "only log packets after receiving N good ones in a row")
 	flag.IntVar(&startFreq, "startfreq", 0, "test")
 	flag.IntVar(&endFreq, "endfreq", 0, "test")
 	flag.IntVar(&stepFreq, "stepfreq", 0, "test")
@@ -332,6 +334,7 @@ func main() {
 	log.Printf("Init channels: wait max %d seconds for a message of each transmitter", loopPeriod/1000000000)
 
 	consecutivePacketsMissed := 0
+	sanityBuf := make([]protocol.Message, 0, sanityBufLen+1)
 
 	for {
 		select {
@@ -355,6 +358,14 @@ func main() {
 					// packet missed
 					curTime = time.Now().UnixNano()
 					consecutivePacketsMissed++
+					// if sanity buffer is in use, dump it (this is the
+					// point--when sync is lost, the last couple of packets
+					// "received" are sometimes garbage)
+					log.Println("sync lost, discarding sanity buffer")
+					for _, msg := range sanityBuf {
+						log.Printf("discarded message ID=%d data=%02x", msg.ID, msg.Data)
+					}
+					sanityBuf = make([]protocol.Message, 0, sanityBufLen+1)
 					// forget the handling of this channel; update lastVisitTime as if the packet was received
 					chLastVisits[expectedChanPtr] += int64(idLoopPeriods[actChan[expectedChanPtr]])
 					// update chLastHops as if the packet was received
@@ -423,8 +434,6 @@ func main() {
 					continue // read next message
 				}
 
-				// a packet has been received
-				consecutivePacketsMissed = 0
 				chTotMsgs[msgIdToChan[int(msg.ID)]]++
 				chAlarmCnts[msgIdToChan[int(msg.ID)]] = 0 // reset current missed count
 				if initTransmitrs {
@@ -447,6 +456,19 @@ func main() {
 					// normal hopping
 					chLastHops[msgIdToChan[int(msg.ID)]] = p.HopToSeq(actHopChanIdx)
 					chLastVisits[msgIdToChan[int(msg.ID)]] = curTime
+					consecutivePacketsMissed = 0
+					handleNxtPacket = true
+					// Push the data packet through the sanityBuffer fifo.  (If
+					// the length of the fifo is set to 0, this does nothing.)
+					sanityBuf = append(sanityBuf, msg)
+					if len(sanityBuf) >= sanityBufLen {
+						msg, sanityBuf = sanityBuf[0], sanityBuf[1:]
+					} else {
+						log.Printf("queueing message, waiting for proof of sanity: %02x",
+							msg.Data)
+						continue
+					}
+
 					if *undefined {
 						log.Printf("%02X %d %d %d %d %d msg.ID=%d undefined:%d",
 							msg.Data, chTotMsgs[0], chTotMsgs[1], chTotMsgs[2], chTotMsgs[3], totInit, msg.ID, idUndefs)
@@ -458,7 +480,6 @@ func main() {
 						// in addition to stdout message, send decoded packet to graphite
 						graphiteChan <- protocol.DecodeMsg(msg)
 					}
-					handleNxtPacket = true
 				}
 			}
 			if handleNxtPacket {
