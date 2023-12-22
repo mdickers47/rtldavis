@@ -46,7 +46,7 @@ import (
 	"time"
 
 	"github.com/jpoirier/gortlsdr"
-	"github.com/lheijst/rtldavis/protocol"
+	"github.com/mdickers47/rtldavis/protocol"
 )
 
 const maxTr = 8
