@@ -332,6 +332,7 @@ func main() {
 	log.Printf("Init channels: wait max %d seconds for a message of each transmitter", loopPeriod/1000000000)
 
 	for {
+		consecutivePacketsMissed := 0
 		select {
 		case <-sig:
 			return
@@ -352,6 +353,7 @@ func main() {
 				if !initTransmitrs {
 					// packet missed
 					curTime = time.Now().UnixNano()
+					consecutivePacketsMissed++
 					// forget the handling of this channel; update lastVisitTime as if the packet was received
 					chLastVisits[expectedChanPtr] += int64(idLoopPeriods[actChan[expectedChanPtr]])
 					// update chLastHops as if the packet was received
@@ -360,11 +362,9 @@ func main() {
 					chAlarmCnts[expectedChanPtr]++
 					chMissPerFreq[actChan[expectedChanPtr]][p.SeqToHop(nextHopChan)]++
 					log.Printf("ID:%d packet missed (%d), missed per freq: %d", actChan[expectedChanPtr], chAlarmCnts[expectedChanPtr], chMissPerFreq[actChan[expectedChanPtr]][0:maxFreq])
-					for i := 0; i < maxChan; i++ {
-						if chAlarmCnts[i] > maxmissed {
-							chAlarmCnts[i] = 0 // reset current alarm count
-							initTransmitrs = true
-						}
+					if consecutivePacketsMissed >= maxmissed {
+						initTransmitrs = true
+						consecutivePacketsMissed = 0
 					}
 				}
 				// test again; situation may have changed
@@ -421,6 +421,7 @@ func main() {
 					idUndefs[int(msg.ID)]++
 					continue // read next message
 				} else {
+					consecutivePacketsMissed = 0
 					chTotMsgs[msgIdToChan[int(msg.ID)]]++
 					chAlarmCnts[msgIdToChan[int(msg.ID)]] = 0 // reset current missed count
 					if initTransmitrs {
