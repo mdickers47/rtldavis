@@ -68,11 +68,11 @@ func DecodeMsg(m Message) (obs []string) {
 			rain_rate = 0.0 /* time between tips is infinity => no rain */
 		} else if m.Data[4]&0x40 == 0 {
 			/* "heavy rain", time-between-tips is scaled up by 4 bits */
-			/* TODO: we are assuming the 0.1 inch (=2.54mm) size bucket */
-			rain_rate = 3600.0 / (float64(time_between_tips_raw) / 16.0) * 2.54
+			/* TODO: we are assuming the 0.01 inch (=0.254mm) size bucket */
+			rain_rate = 3600.0 / (float64(time_between_tips_raw) / 16.0) * 0.254
 		} else {
 			/* "light rain" formula */
-			rain_rate = 3600.0 / float64(time_between_tips_raw) * 2.54
+			rain_rate = 3600.0 / float64(time_between_tips_raw) * 0.254
 		}
 		obs = append(obs, fmt.Sprintf("rain_rate_mmh %.2f", rain_rate))
 	case 0x06:
