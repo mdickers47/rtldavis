@@ -446,11 +446,13 @@ func main() {
 						if *undefined {
 							log.Printf("%02X %d %d %d %d %d msg.ID=%d undefined:%d",
 								msg.Data, chTotMsgs[0], chTotMsgs[1], chTotMsgs[2], chTotMsgs[3], totInit, msg.ID, idUndefs)
-						} else if graphiteSrv != nil {
-							graphiteChan <- protocol.DecodeMsg(msg)
 						} else {
 							log.Printf("%02X %d %d %d %d %d msg.ID=%d",
 								msg.Data, chTotMsgs[0], chTotMsgs[1], chTotMsgs[2], chTotMsgs[3], totInit, msg.ID)
+						}
+						if graphiteSrv != nil {
+							// in addition to stdout message, send decoded packet to graphite
+							graphiteChan <- protocol.DecodeMsg(msg)
 						}
 						handleNxtPacket = true
 					}
