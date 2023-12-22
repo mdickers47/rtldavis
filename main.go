@@ -420,43 +420,44 @@ func main() {
 					}
 					idUndefs[int(msg.ID)]++
 					continue // read next message
-				} else {
-					consecutivePacketsMissed = 0
-					chTotMsgs[msgIdToChan[int(msg.ID)]]++
-					chAlarmCnts[msgIdToChan[int(msg.ID)]] = 0 // reset current missed count
-					if initTransmitrs {
-						if chLastVisits[msgIdToChan[int(msg.ID)]] == 0 {
-							visitCount += 1
-							chLastVisits[msgIdToChan[int(msg.ID)]] = curTime
-							chLastHops[msgIdToChan[int(msg.ID)]] = p.HopToSeq(actHopChanIdx)
-							log.Printf("TRANSMITTER %d SEEN", msg.ID)
-							if visitCount == maxChan {
-								if maxChan > 1 {
-									log.Printf("ALL TRANSMITTERS SEEN")
-								}
-								initTransmitrs = false
-								handleNxtPacket = true
+				}
+
+				// a packet has been received
+				consecutivePacketsMissed = 0
+				chTotMsgs[msgIdToChan[int(msg.ID)]]++
+				chAlarmCnts[msgIdToChan[int(msg.ID)]] = 0 // reset current missed count
+				if initTransmitrs {
+					if chLastVisits[msgIdToChan[int(msg.ID)]] == 0 {
+						visitCount += 1
+						chLastVisits[msgIdToChan[int(msg.ID)]] = curTime
+						chLastHops[msgIdToChan[int(msg.ID)]] = p.HopToSeq(actHopChanIdx)
+						log.Printf("TRANSMITTER %d SEEN", msg.ID)
+						if visitCount == maxChan {
+							if maxChan > 1 {
+								log.Printf("ALL TRANSMITTERS SEEN")
 							}
-						} else {
-							chLastVisits[msgIdToChan[int(msg.ID)]] = curTime // update chLastVisits timer
+							initTransmitrs = false
+							handleNxtPacket = true
 						}
 					} else {
-						// normal hopping
-						chLastHops[msgIdToChan[int(msg.ID)]] = p.HopToSeq(actHopChanIdx)
-						chLastVisits[msgIdToChan[int(msg.ID)]] = curTime
-						if *undefined {
-							log.Printf("%02X %d %d %d %d %d msg.ID=%d undefined:%d",
-								msg.Data, chTotMsgs[0], chTotMsgs[1], chTotMsgs[2], chTotMsgs[3], totInit, msg.ID, idUndefs)
-						} else {
-							log.Printf("%02X %d %d %d %d %d msg.ID=%d",
-								msg.Data, chTotMsgs[0], chTotMsgs[1], chTotMsgs[2], chTotMsgs[3], totInit, msg.ID)
-						}
-						if graphiteSrv != nil {
-							// in addition to stdout message, send decoded packet to graphite
-							graphiteChan <- protocol.DecodeMsg(msg)
-						}
-						handleNxtPacket = true
+						chLastVisits[msgIdToChan[int(msg.ID)]] = curTime // update chLastVisits timer
 					}
+				} else {
+					// normal hopping
+					chLastHops[msgIdToChan[int(msg.ID)]] = p.HopToSeq(actHopChanIdx)
+					chLastVisits[msgIdToChan[int(msg.ID)]] = curTime
+					if *undefined {
+						log.Printf("%02X %d %d %d %d %d msg.ID=%d undefined:%d",
+							msg.Data, chTotMsgs[0], chTotMsgs[1], chTotMsgs[2], chTotMsgs[3], totInit, msg.ID, idUndefs)
+					} else {
+						log.Printf("%02X %d %d %d %d %d msg.ID=%d",
+							msg.Data, chTotMsgs[0], chTotMsgs[1], chTotMsgs[2], chTotMsgs[3], totInit, msg.ID)
+					}
+					if graphiteSrv != nil {
+						// in addition to stdout message, send decoded packet to graphite
+						graphiteChan <- protocol.DecodeMsg(msg)
+					}
+					handleNxtPacket = true
 				}
 			}
 			if handleNxtPacket {
