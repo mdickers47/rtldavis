@@ -34,15 +34,15 @@ func DecodeMsg(m Message) (obs []string) {
 	}
 
 	windspeed_raw := m.Data[1]
-	obs = append(obs, fmt.Sprintf("windspeed_raw %d", windspeed_raw))
+	obs = append(obs, fmt.Sprintf("wind_speed_raw %d", windspeed_raw))
 
 	winddir_vue := float64(m.Data[2])*1.40625 + 0.3
-	obs = append(obs, fmt.Sprintf("winddir %.2f", winddir_vue))
+	obs = append(obs, fmt.Sprintf("wind_dir %.2f", winddir_vue))
 
 	/* apply the error correction table that might not even be for the
 	   Vantage Vue; it's unclear */
 	winddir := CorrectWindspeed(m.Data[1], m.Data[2])
-	obs = append(obs, fmt.Sprintf("windspeed %.2f", winddir))
+	obs = append(obs, fmt.Sprintf("wind_speed_mph %.2f", winddir))
 
 	msg_type := (m.Data[0] >> 4) & 0x0F
 	/* most of the time we will use the 10-bit number in this weird place */
@@ -79,7 +79,7 @@ func DecodeMsg(m Message) (obs []string) {
 		/* solar radiation */
 		if raw < 0x03fE {
 			sr := float64(raw) * 1.757936
-			obs = append(obs, fmt.Sprintf("solar_radiation %.2f", sr))
+			obs = append(obs, fmt.Sprintf("solar_rad %.2f", sr))
 		}
 	case 0x07:
 		/* solar panel output */
@@ -92,7 +92,7 @@ func DecodeMsg(m Message) (obs []string) {
 		if raw != 0x0FFC {
 			if m.Data[4]&0x08 != 0 {
 				/* digital sensor */
-				obs = append(obs, fmt.Sprintf("temp %.2f", float32(raw)/10.0))
+				obs = append(obs, fmt.Sprintf("temp_f %.2f", float32(raw)/10.0))
 			} else {
 				/* TODO: thermistor */
 				log.Printf("can't interpret analog temperature sensor reading %d", raw)
@@ -103,19 +103,19 @@ func DecodeMsg(m Message) (obs []string) {
 		/* 10-min average wind gust */
 		gust_raw := m.Data[3]
 		gust_index := m.Data[5] >> 4 /* ??? */
-		obs = append(obs, fmt.Sprintf("gust_mph %d", gust_raw))
-		obs = append(obs, fmt.Sprintf("gust_index %d", gust_index))
+		obs = append(obs, fmt.Sprintf("wind_gust_mph %d", gust_raw))
+		obs = append(obs, fmt.Sprintf("wind_gust_index %d", gust_index))
 	case 0x0a:
 		/* humidity */
 		raw = (int16(m.Data[4]>>4) << 8) + int16(m.Data[3])
 		if raw != 0 {
 			if m.Data[4]&0x08 != 0 {
 				/* digital sensor */
-				obs = append(obs, fmt.Sprintf("humidity %.2f", float32(raw)/10.0))
+				obs = append(obs, fmt.Sprintf("humd %.2f", float32(raw)/10.0))
 			} else {
 				/* TODO: two other types of digital sensor and one analog */
 				log.Printf("can't interpret humidity sensor reading %d", raw)
-				obs = append(obs, fmt.Sprintf("humidity_raw %d", raw))
+				obs = append(obs, fmt.Sprintf("humd_raw %d", raw))
 			}
 		}
 	case 0x0e:
